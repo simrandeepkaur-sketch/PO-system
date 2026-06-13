@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Order System – Prabh Aasra</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-dark: #1a5c2a;
+    --green-mid:  #2d8a45;
+    --green-light:#e6f4ea;
+    --green-pale: #f4faf6;
+    --slate:      #1a2e4a;
+    --slate-mid:  #3d5a80;
+    --slate-light:#e8eef5;
+    --amber:      #f59e0b;
+    --amber-light:#fef3c7;
+    --red:        #dc2626;
+    --red-light:  #fee2e2;
+    --text:       #1e293b;
+    --muted:      #64748b;
+    --border:     #cbd5e1;
+    --white:      #ffffff;
+    --bg:         #f1f5f9;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── TOP NAV ── */
+  nav {
+    background: var(--slate);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+  }
+
+  .nav-logo {
+    width: 32px;
+    height: 32px;
+    background: var(--green-mid);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .nav-title { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.3px; }
+  .nav-sub   { font-size: 0.68rem; color: #94a3b8; }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .nav-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+  }
+
+  .avatar {
+    width: 30px; height: 30px;
+    background: var(--green-mid);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 0.75rem; font-weight: 700;
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  aside {
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+  }
+
+  .sidebar-section {
+    padding: 0 12px;
+    margin-bottom: 20px;
+  }
+
+  .sidebar-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 8px;
+    margin-bottom: 6px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .sidebar-item:hover { background: var(--bg); color: var(--text); }
+
+  .sidebar-item.active {
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-weight: 600;
+  }
+
+  .sidebar-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+  .badge {
+    margin-left: auto;
+    background: var(--amber);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+
+  /* ── MAIN ── */
+  main {
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .page-title { font-size: 1.2rem; font-weight: 700; color: var(--slate); }
+  .page-sub   { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  .btn-new {
+    background: var(--green-dark);
+    color: white;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── STATS ROW ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .stat-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--slate); }
+  .stat-sub   { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+  .stat-card.green .stat-value { color: var(--green-dark); }
+  .stat-card.amber .stat-value { color: #b45309; }
+  .stat-card.red   .stat-value { color: var(--red); }
+
+  /* ── SEARCH BAR ── */
+  .search-bar {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .search-input-wrap {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 12px;
+  }
+
+  .search-input-wrap input {
+    border: none;
+    background: transparent;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+    width: 100%;
+  }
+
+  .search-input-wrap input::placeholder { color: var(--muted); }
+
+  .filter-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 12px;
+    font-size: 0.8rem;
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn-search {
+    background: var(--slate);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  thead {
+    background: var(--slate-light);
+  }
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--green-pale); }
+
+  .po-num { font-weight: 700; color: var(--slate); font-family: monospace; font-size: 0.82rem; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .status-draft     { background: var(--slate-light); color: var(--slate-mid); }
+  .status-submitted { background: var(--amber-light); color: #92400e; }
+  .status-approved  { background: var(--green-light); color: var(--green-dark); }
+  .status-rejected  { background: var(--red-light);   color: var(--red); }
+
+  .action-btns { display: flex; gap: 6px; }
+
+  .btn-icon {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+
+  .btn-icon:hover { background: var(--slate-light); color: var(--slate); }
+
+  /* ── FORM PANEL ── */
+  .form-panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .form-header {
+    background: var(--slate);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .form-header-title {
+    color: white;
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  .po-badge {
+    background: var(--green-mid);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-family: monospace;
+  }
+
+  .form-body { padding: 20px; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  textarea,
+  select {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+    transition: border 0.15s;
+    font-family: inherit;
+    background: var(--white);
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--green-mid);
+    box-shadow: 0 0 0 3px rgba(45,138,69,0.1);
+  }
+
+  input[readonly] {
+    background: var(--green-pale);
+    color: var(--green-dark);
+    font-weight: 700;
+    font-family: monospace;
+  }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* items table inside form */
+  .items-section { margin-bottom: 16px; }
+
+  .items-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .items-table th {
+    background: var(--slate-light);
+    padding: 8px 10px;
+    font-size: 0.68rem;
+  }
+
+  .items-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .items-table input {
+    border: none;
+    background: transparent;
+    font-size: 0.78rem;
+    width: 100%;
+    outline: none;
+    padding: 2px 4px;
+  }
+
+  .items-table input:focus {
+    background: var(--green-pale);
+    border-radius: 4px;
+    box-shadow: none;
+  }
+
+  .add-row-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 7px;
+    padding: 7px;
+    width: 100%;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    margin-top: 6px;
+    transition: all 0.15s;
+  }
+
+  .add-row-btn:hover { background: var(--green-pale); color: var(--green-dark); border-color: var(--green-mid); }
+
+  /* totals */
+  .totals {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+  }
+
+  .totals-box {
+    background: var(--slate-light);
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-width: 200px;
+  }
+
+  .totals-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+    color: var(--muted);
+  }
+
+  .totals-row.total {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--slate);
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  /* action buttons */
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.15s;
+  }
+
+  .btn:hover { opacity: 0.88; }
+
+  .btn-draft  { background: var(--slate-light); color: var(--slate); border: 1px solid var(--border); }
+  .btn-update { background: var(--amber-light); color: #92400e; border: 1px solid #f0c060; }
+  .btn-submit { background: var(--green-dark); color: white; }
+  .btn-cancel { background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; margin-left: auto; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green-dark);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* responsive */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { display: none; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">🏥</div>
+    <div>
+      <div class="nav-title">Prabh Aasra</div>
+      <div class="nav-sub">Purchase Order System</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-user">
+      <div class="avatar">IT</div>
+      IT Coordinator
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Menu</div>
+      <div class="sidebar-item active"><span class="icon">📋</span> Purchase Orders</div>
+      <div class="sidebar-item"><span class="icon">📊</span> Dashboard <span class="badge">Soon</span></div>
+      <div class="sidebar-item"><span class="icon">🏢</span> Vendors <span class="badge">Soon</span></div>
+      <div class="sidebar-item"><span class="icon">✅</span> Approvals <span class="badge">3</span></div>
+      <div class="sidebar-item"><span class="icon">📁</span> Reports <span class="badge">Soon</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Filters</div>
+      <div class="sidebar-item"><span class="icon">🟡</span> Drafts (5)</div>
+      <div class="sidebar-item"><span class="icon">🟠</span> Submitted (3)</div>
+      <div class="sidebar-item"><span class="icon">🟢</span> Approved (12)</div>
+      <div class="sidebar-item"><span class="icon">🔴</span> Rejected (1)</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Settings</div>
+      <div class="sidebar-item"><span class="icon">⚙️</span> Settings</div>
+      <div class="sidebar-item"><span class="icon">🔔</span> Notifications</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-title">Purchase Orders</div>
+        <div class="page-sub">Manage and track all purchase requests</div>
+      </div>
+      <button class="btn-new" onclick="scrollToForm()">＋ New PO</button>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total POs</div>
+        <div class="stat-value">21</div>
+        <div class="stat-sub">This month</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value">8</div>
+        <div class="stat-sub">Awaiting action</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Approved</div>
+        <div class="stat-value">12</div>
+        <div class="stat-sub">This month</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Rejected</div>
+        <div class="stat-value">1</div>
+        <div class="stat-sub">This month</div>
+      </div>
+    </div>
+
+    <!-- SEARCH BAR -->
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        🔍
+        <input type="text" placeholder="Search by PO number, vendor, requested by…" />
+      </div>
+      <select class="filter-select">
+        <option>All Status</option>
+        <option>Draft</option>
+        <option>Submitted</option>
+        <option>Approved</option>
+        <option>Rejected</option>
+      </select>
+      <select class="filter-select">
+        <option>All Dates</option>
+        <option>This Week</option>
+        <option>This Month</option>
+        <option>Last Month</option>
+      </select>
+      <button class="btn-search">Search</button>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Date</th>
+            <th>Vendor</th>
+            <th>Requested By</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="po-num">PO-2026-0021</span></td>
+            <td>12 Jun 2026</td>
+            <td>MedSupply Punjab</td>
+            <td>Dr. Kaur</td>
+            <td>₹18,500</td>
+            <td><span class="status-badge status-draft">● Draft</span></td>
+            <td><div class="action-btns"><button class="btn-icon">✏️ Edit</button><button class="btn-icon">🗑️</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="po-num">PO-2026-0020</span></td>
+            <td>11 Jun 2026</td>
+            <td>Punjab Stationery Co.</td>
+            <td>Rahul Singh</td>
+            <td>₹4,200</td>
+            <td><span class="status-badge status-submitted">● Submitted</span></td>
+            <td><div class="action-btns"><button class="btn-icon">👁️ View</button><button class="btn-icon">🗑️</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="po-num">PO-2026-0019</span></td>
+            <td>10 Jun 2026</td>
+            <td>Chandigarh Food Supplies</td>
+            <td>Priya Sharma</td>
+            <td>₹32,000</td>
+            <td><span class="status-badge status-approved">● Approved</span></td>
+            <td><div class="action-btns"><button class="btn-icon">👁️ View</button><button class="btn-icon">📄 PDF</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="po-num">PO-2026-0018</span></td>
+            <td>09 Jun 2026</td>
+            <td>IT World Mohali</td>
+            <td>You</td>
+            <td>₹12,800</td>
+            <td><span class="status-badge status-rejected">● Rejected</span></td>
+            <td><div class="action-btns"><button class="btn-icon">✏️ Edit</button><button class="btn-icon">🗑️</button></div></td>
+          </tr>
+          <tr>
+            <td><span class="po-num">PO-2026-0017</span></td>
+            <td>08 Jun 2026</td>
+            <td>MedSupply Punjab</td>
+            <td>Dr. Kaur</td>
+            <td>₹9,600</td>
+            <td><span class="status-badge status-approved">● Approved</span></td>
+            <td><div class="action-btns"><button class="btn-icon">👁️ View</button><button class="btn-icon">📄 PDF</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FORM -->
+    <div class="form-panel" id="po-form">
+      <div class="form-header">
+        <div class="form-header-title">📋 New Purchase Order</div>
+        <div class="po-badge">PO-2026-0022</div>
+      </div>
+
+      <div class="form-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>PO Number</label>
+            <input type="text" value="PO-2026-0022" readonly />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" value="2026-06-12" />
+          </div>
+          <div class="form-group">
+            <label>Vendor Name</label>
+            <input type="text" placeholder="e.g. MedSupply Punjab" />
+          </div>
+          <div class="form-group">
+            <label>Requested By</label>
+            <input type="text" placeholder="Staff name" />
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <select>
+              <option>Select department</option>
+              <option>Medical / Hospital</option>
+              <option>Administration</option>
+              <option>Education</option>
+              <option>Rehabilitation</option>
+              <option>IT</option>
+              <option>Disaster Relief</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Required By Date</label>
+            <input type="date" />
+          </div>
+          <div class="form-group full">
+            <label>Notes / Remarks</label>
+            <textarea placeholder="Any additional notes or special instructions…"></textarea>
+          </div>
+        </div>
+
+        <!-- ITEMS -->
+        <div class="items-section">
+          <div class="items-label">Items</div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item Description</th>
+                <th>Qty</th>
+                <th>Unit Price (₹)</th>
+                <th>Total (₹)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--muted);font-size:0.72rem">1</td>
+                <td><input type="text" placeholder="Item name…" /></td>
+                <td><input type="number" placeholder="0" style="width:60px" /></td>
+                <td><input type="number" placeholder="0.00" style="width:80px" /></td>
+                <td style="color:var(--muted);font-size:0.78rem">—</td>
+                <td><button class="btn-icon" style="padding:3px 6px;font-size:0.68rem">✕</button></td>
+              </tr>
+              <tr>
+                <td style="color:var(--muted);font-size:0.72rem">2</td>
+                <td><input type="text" placeholder="Item name…" /></td>
+                <td><input type="number" placeholder="0" style="width:60px" /></td>
+                <td><input type="number" placeholder="0.00" style="width:80px" /></td>
+                <td style="color:var(--muted);font-size:0.78rem">—</td>
+                <td><button class="btn-icon" style="padding:3px 6px;font-size:0.68rem">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="add-row-btn">＋ Add Item</button>
+        </div>
+
+        <!-- TOTALS -->
+        <div class="totals">
+          <div class="totals-box">
+            <div class="totals-row"><span>Subtotal</span><span>₹0.00</span></div>
+            <div class="totals-row"><span>Tax (GST)</span><span>₹0.00</span></div>
+            <div class="totals-row total"><span>Total</span><span>₹0.00</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div class="form-actions">
+        <button class="btn btn-draft" onclick="showToast('💾 Saved as Draft', '#3d5a80')">💾 Save as Draft</button>
+        <button class="btn btn-update" onclick="showToast('✏️ PO Updated', '#b45309')">✏️ Update</button>
+        <button class="btn btn-submit" onclick="showToast('🚀 PO Submitted — Slack notified!', '#1a5c2a')">🚀 Submit PO</button>
+        <button class="btn btn-cancel">✕ Cancel</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast" style="display:none">
+  <span id="toast-msg">Saved!</span>
+</div>
+
+<script>
+  function scrollToForm() {
+    document.getElementById('po-form').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    const m = document.getElementById('toast-msg');
+    t.style.background = color || '#1a5c2a';
+    m.textContent = msg;
+    t.style.display = 'flex';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+  }
+</script>
+
+</body>
+</html>
