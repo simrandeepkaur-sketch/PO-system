@@ -312,6 +312,7 @@
 
   let allPOs = [];
   let itemRowCount = 0;
+  let isEditMode = false;  // true when editing existing PO, false when creating new
 
   window.onload = () => {
     setToday();
@@ -465,35 +466,46 @@
   }
 
   function saveDraft() {
-    sendToN8N(WEBHOOKS.saveDraft, collectFormData('Draft'), 'btn-draft', '💾 Saved as Draft!', '#3d5a80');
+    // If editing existing PO → update that row; if new → append
+    const webhook = isEditMode ? WEBHOOKS.update : WEBHOOKS.saveDraft;
+    const msg     = isEditMode ? '💾 Draft Updated!' : '💾 Saved as Draft!';
+    sendToN8N(webhook, collectFormData('Draft'), 'btn-draft', msg, '#3d5a80');
   }
 
   function updatePO() {
+    // Always update existing row
     sendToN8N(WEBHOOKS.update, collectFormData('Draft'), 'btn-update', '✏️ PO Updated!', '#b45309');
   }
 
   function submitPO() {
     if (!validate()) return;
-    const data = collectFormData('Submitted');
-    const btn  = document.getElementById('btn-submit');
-    const orig = btn.innerHTML;
+    const data   = collectFormData('Submitted');
+    const btn    = document.getElementById('btn-submit');
+    const orig   = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `<div class="spinner"></div> Submitting…`;
-    fetch(WEBHOOKS.saveDraft, {
+
+    // If editing existing PO → update that row with Submitted status
+    // If new PO → save new row then notify Slack
+    const saveUrl = isEditMode ? WEBHOOKS.update : WEBHOOKS.saveDraft;
+
+    fetch(saveUrl, {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json' },
       body    : JSON.stringify(data)
-    }).then(() => {
+    }).then(res => {
+      if (!res.ok) throw new Error('Save failed: ' + res.status);
+      // Send Slack notification
       return fetch(WEBHOOKS.submit, {
         method  : 'POST',
         headers : { 'Content-Type': 'application/json' },
         body    : JSON.stringify(data)
       });
     }).then(() => {
-      showToast('🚀 PO Submitted! Slack notified.', '#1a5c2a');
+      showToast('🚀 PO Submitted successfully!', '#1a5c2a');
       setTimeout(() => { loadPOs(); resetForm(); }, 1500);
-    }).catch(() => {
-      showToast('❌ Error submitting PO', '#dc2626');
+    }).catch(err => {
+      showToast('❌ Error: ' + err.message, '#dc2626');
     }).finally(() => {
       btn.disabled = false;
       btn.innerHTML = orig;
@@ -501,6 +513,7 @@
   }
 
   function resetForm() {
+    isEditMode = false;
     ['vendor-name','requested-by','required-by','notes'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('department').value = '';
     document.getElementById('items-body').innerHTML = '';
@@ -575,6 +588,7 @@
     document.getElementById('notes').value        = get(['Notes','notes','Remarks','remarks']);
     document.getElementById('po-badge-display').textContent = get(['PO Number','po_number']) || '—';
     document.getElementById('form-title').textContent = '✏️ Edit Purchase Order';
+    isEditMode = true;  // mark as edit so Save/Submit update instead of append
 
     // Clear items body and reset counter
     document.getElementById('items-body').innerHTML = '';
