@@ -303,9 +303,6 @@
 </div>
 
 <script>
-  // =============================================
-  // WEBHOOK URLS — UPDATE IF PATHS CHANGED IN N8N
-  // =============================================
   const WEBHOOKS = {
     saveDraft : 'https://prabhaasra.app.n8n.cloud/webhook/save-draft',
     update    : 'https://prabhaasra.app.n8n.cloud/webhook/update-po',
@@ -316,9 +313,6 @@
   let allPOs = [];
   let itemRowCount = 0;
 
-  // =============================================
-  // ON PAGE LOAD
-  // =============================================
   window.onload = () => {
     setToday();
     generatePONumber();
@@ -331,9 +325,6 @@
     document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
   }
 
-  // =============================================
-  // AUTO GENERATE PO NUMBER
-  // =============================================
   function generatePONumber() {
     const year = new Date().getFullYear();
     const seq  = String(Date.now()).slice(-4);
@@ -342,9 +333,6 @@
     document.getElementById('po-badge-display').textContent = po;
   }
 
-  // =============================================
-  // ADD ITEM ROW
-  // =============================================
   function addItemRow() {
     itemRowCount++;
     const tr = document.createElement('tr');
@@ -365,9 +353,6 @@
     if (row) { row.remove(); calcTotals(); }
   }
 
-  // =============================================
-  // CALCULATE TOTALS
-  // =============================================
   function calcTotals() {
     let subtotal = 0;
     document.querySelectorAll('#items-body tr').forEach(row => {
@@ -385,39 +370,44 @@
     document.getElementById('grand-total').textContent = `₹${grand.toFixed(2)}`;
   }
 
-  // =============================================
-  // COLLECT ITEMS
-  // =============================================
+  // FIX: collect items as both readable string AND keep amounts for total calc
   function collectItems() {
     const items = [];
     document.querySelectorAll('#items-body tr').forEach(row => {
       const desc  = row.querySelector('.item-desc')?.value?.trim();
-      const qty   = row.querySelector('.item-qty')?.value   || 0;
-      const price = row.querySelector('.item-price')?.value || 0;
-      if (desc) items.push({ description: desc, quantity: qty, unit_price: price, total: (qty * price).toFixed(2) });
+      const qty   = parseFloat(row.querySelector('.item-qty')?.value)   || 0;
+      const price = parseFloat(row.querySelector('.item-price')?.value) || 0;
+      if (desc && qty > 0) {
+        items.push({ description: desc, quantity: qty, unit_price: price, total: (qty * price).toFixed(2) });
+      }
     });
     return items;
   }
 
-  // =============================================
-  // FORMAT ITEMS FOR TABLE DISPLAY
-  // =============================================
+  // FIX: format items as readable text for Google Sheet
+  function formatItemsForSheet(items) {
+    if (!items.length) return '';
+    return items.map(i => `${i.description} x${i.quantity} @₹${i.unit_price} = ₹${i.total}`).join(' | ');
+  }
+
   function formatItems(itemsStr) {
+    if (!itemsStr || itemsStr === '[]' || itemsStr.trim() === '') return '—';
+    // Already readable text (new format)
+    if (!itemsStr.startsWith('[')) return itemsStr;
+    // Legacy JSON format — parse and display
     try {
       const parsed = JSON.parse(itemsStr);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map(i => `${i.description} ×${i.quantity}`).join(', ');
       }
     } catch (e) {}
     return itemsStr || '—';
   }
 
-  // =============================================
-  // COLLECT FORM DATA
-  // =============================================
   function collectFormData(status) {
-    const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('₹','')) || 0;
-    const tax      = parseFloat(document.getElementById('tax').textContent.replace('₹',''))      || 0;
+    const items    = collectItems();
+    const subtotal = items.reduce((sum, i) => sum + parseFloat(i.total), 0);
+    const tax      = subtotal * 0.18;
     return {
       po_number    : document.getElementById('po-number').value,
       date         : document.getElementById('po-date').value,
@@ -426,25 +416,21 @@
       department   : document.getElementById('department').value,
       required_by  : document.getElementById('required-by').value,
       notes        : document.getElementById('notes').value.trim(),
-      items        : JSON.stringify(collectItems()),
+      items        : formatItemsForSheet(items),   // FIX: human-readable string
       total_amount : (subtotal + tax).toFixed(2),
       status       : status
     };
   }
 
-  // =============================================
-  // VALIDATE
-  // =============================================
   function validate() {
+    const items = collectItems();
     if (!document.getElementById('vendor-name').value.trim())  { showToast('⚠️ Vendor Name is required',  '#b45309'); return false; }
     if (!document.getElementById('requested-by').value.trim()) { showToast('⚠️ Requested By is required', '#b45309'); return false; }
     if (!document.getElementById('department').value)          { showToast('⚠️ Department is required',   '#b45309'); return false; }
+    if (items.length === 0)                                    { showToast('⚠️ Add at least one item with description and quantity', '#b45309'); return false; }
     return true;
   }
 
-  // =============================================
-  // SEND TO N8N
-  // =============================================
   async function sendToN8N(url, data, btnId, successMsg, color) {
     if (!validate()) return;
     const btn  = document.getElementById(btnId);
@@ -471,9 +457,6 @@
     }
   }
 
-  // =============================================
-  // BUTTON ACTIONS
-  // =============================================
   function saveDraft() {
     sendToN8N(WEBHOOKS.saveDraft, collectFormData('Draft'), 'btn-draft', '💾 Saved as Draft!', '#3d5a80');
   }
@@ -483,21 +466,17 @@
   }
 
   function submitPO() {
-    // Submit uses saveDraft webhook to CREATE new row with Submitted status
-    // Then also calls submit webhook to send Slack notification
     if (!validate()) return;
     const data = collectFormData('Submitted');
     const btn  = document.getElementById('btn-submit');
     const orig = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `<div class="spinner"></div> Submitting…`;
-    // First save to sheet
     fetch(WEBHOOKS.saveDraft, {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json' },
       body    : JSON.stringify(data)
     }).then(() => {
-      // Then send Slack notification
       return fetch(WEBHOOKS.submit, {
         method  : 'POST',
         headers : { 'Content-Type': 'application/json' },
@@ -514,9 +493,6 @@
     });
   }
 
-  // =============================================
-  // RESET FORM
-  // =============================================
   function resetForm() {
     ['vendor-name','requested-by','required-by','notes'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('department').value = '';
@@ -534,9 +510,6 @@
     document.getElementById('po-form').scrollIntoView({ behavior: 'smooth' });
   }
 
-  // =============================================
-  // LOAD POs FROM GOOGLE SHEET
-  // =============================================
   async function loadPOs() {
     const tbody = document.getElementById('po-table-body');
     tbody.innerHTML = `<tr><td colspan="8" class="empty-table">⏳ Loading...</td></tr>`;
@@ -555,9 +528,6 @@
     }
   }
 
-  // =============================================
-  // RENDER TABLE
-  // =============================================
   function renderTable(pos) {
     const tbody = document.getElementById('po-table-body');
     if (!pos.length) {
@@ -574,7 +544,7 @@
         <td>${po['Date']           || po['date']           || ''}</td>
         <td>${po['Vendor Name']    || po['vendor_name']    || ''}</td>
         <td>${po['Requested By']   || po['requested_by']   || ''}</td>
-        <td style="max-width:180px;font-size:0.75rem;color:var(--muted)">${formatItems(itemsRaw)}</td>
+        <td style="max-width:200px;font-size:0.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${itemsRaw}">${formatItems(itemsRaw)}</td>
         <td>₹${amt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
         <td><span class="status-badge ${cls}">● ${status}</span></td>
         <td><div class="action-btns">
@@ -584,9 +554,6 @@
     }).join('');
   }
 
-  // =============================================
-  // LOAD PO INTO FORM FOR EDITING
-  // =============================================
   function loadIntoForm(po) {
     document.getElementById('po-number').value    = po['PO Number']    || po['po_number']    || '';
     document.getElementById('po-date').value      = po['Date']         || po['date']         || '';
@@ -597,13 +564,59 @@
     document.getElementById('notes').value        = po['Notes']        || po['notes']        || '';
     document.getElementById('po-badge-display').textContent = po['PO Number'] || po['po_number'] || '';
     document.getElementById('form-title').textContent = '✏️ Edit Purchase Order';
+
+    // Clear items body and reset counter
+    document.getElementById('items-body').innerHTML = '';
+    itemRowCount = 0;
+
+    const itemsStr = (po['Items'] || po['items'] || '').trim();
+    let loaded = false;
+
+    // FORMAT 1: Old JSON format — [{"description":"...","quantity":"...","unit_price":"..."}]
+    if (itemsStr.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(itemsStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach(item => {
+            if (item.description) {
+              addItemRow();
+              const rows = document.querySelectorAll('#items-body tr');
+              const row  = rows[rows.length - 1];
+              row.querySelector('.item-desc').value  = item.description || '';
+              row.querySelector('.item-qty').value   = item.quantity    || 0;
+              row.querySelector('.item-price').value = item.unit_price  || 0;
+            }
+          });
+          loaded = true;
+        }
+      } catch(e) {}
+    }
+
+    // FORMAT 2: New readable format — "Item x2 @₹100 = ₹200 | Item2 x1 @₹50 = ₹50"
+    if (!loaded && itemsStr && itemsStr !== '[]') {
+      itemsStr.split(' | ').forEach(part => {
+        const m = part.match(/^(.+?) x(\d+(?:\.\d+)?) @₹(\d+(?:\.\d+)?)/);
+        if (m) {
+          addItemRow();
+          const rows = document.querySelectorAll('#items-body tr');
+          const row  = rows[rows.length - 1];
+          row.querySelector('.item-desc').value  = m[1].trim();
+          row.querySelector('.item-qty').value   = m[2];
+          row.querySelector('.item-price').value = m[3];
+          loaded = true;
+        }
+      });
+    }
+
+    // No items found — show 2 blank rows
+    if (!loaded) { addItemRow(); addItemRow(); }
+
+    calcTotals();
+
     document.getElementById('po-form').scrollIntoView({ behavior: 'smooth' });
     showToast('📋 PO loaded for editing', '#3d5a80');
   }
 
-  // =============================================
-  // SEARCH & FILTER
-  // =============================================
   function searchPOs() {
     const q      = document.getElementById('search-input').value.toLowerCase();
     const status = document.getElementById('filter-status').value;
@@ -623,9 +636,6 @@
     searchPOs();
   }
 
-  // =============================================
-  // UPDATE STATS
-  // =============================================
   function updateStats(pos) {
     const s = p => p['Status'] || p['status'] || '';
     document.getElementById('stat-total').textContent     = pos.length;
@@ -634,9 +644,6 @@
     document.getElementById('stat-approved').textContent  = pos.filter(p => s(p) === 'Approved').length;
   }
 
-  // =============================================
-  // TOAST
-  // =============================================
   function showToast(msg, color) {
     const t = document.getElementById('toast');
     t.style.background = color || '#1a5c2a';
