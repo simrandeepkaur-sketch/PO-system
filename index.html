@@ -315,10 +315,9 @@
 
   window.onload = () => {
     setToday();
-    generatePONumber();
     addItemRow();
     addItemRow();
-    loadPOs();
+    loadPOs();  // generatePONumber() is called inside loadPOs() after data loads
   };
 
   function setToday() {
@@ -327,8 +326,16 @@
 
   function generatePONumber() {
     const year = new Date().getFullYear();
-    const seq  = String(Date.now()).slice(-4);
-    const po   = `PO-${year}-${seq}`;
+    let maxSeq = 0;
+    allPOs.forEach(po => {
+      const num = po['PO Number'] || po['po_number'] || '';
+      const match = num.match(/^PO-(\d{4})-(\d+)$/);
+      if (match && parseInt(match[1]) === year) {
+        maxSeq = Math.max(maxSeq, parseInt(match[2]));
+      }
+    });
+    const nextSeq = String(maxSeq + 1).padStart(4, '0');
+    const po = `PO-${year}-${nextSeq}`;
     document.getElementById('po-number').value = po;
     document.getElementById('po-badge-display').textContent = po;
   }
@@ -517,6 +524,7 @@
       const res  = await fetch(WEBHOOKS.getAll);
       const data = await res.json();
       allPOs = Array.isArray(data) ? data : (data.data || []);
+      generatePONumber();  // generate sequential PO number after allPOs loaded
       if (!allPOs.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="empty-table">No POs found. Create your first one below!</td></tr>`;
       } else {
@@ -555,14 +563,17 @@
   }
 
   function loadIntoForm(po) {
-    document.getElementById('po-number').value    = po['PO Number']    || po['po_number']    || '';
-    document.getElementById('po-date').value      = po['Date']         || po['date']         || '';
-    document.getElementById('vendor-name').value  = po['Vendor Name']  || po['vendor_name']  || '';
-    document.getElementById('requested-by').value = po['Requested By'] || po['requested_by'] || '';
-    document.getElementById('department').value   = po['Department']   || po['department']   || '';
-    document.getElementById('required-by').value  = po['Required By']  || po['required_by']  || '';
-    document.getElementById('notes').value        = po['Notes']        || po['notes']        || '';
-    document.getElementById('po-badge-display').textContent = po['PO Number'] || po['po_number'] || '';
+    console.log('Loading PO into form:', JSON.stringify(po));  // debug
+    // Normalize: check all possible key names from Google Sheets
+    const get = (keys) => { for (const k of keys) { if (po[k] !== undefined && po[k] !== null && po[k] !== '') return po[k]; } return ''; };
+    document.getElementById('po-number').value    = get(['PO Number','po_number','PO_Number','ponumber']);
+    document.getElementById('po-date').value      = get(['Date','date']);
+    document.getElementById('vendor-name').value  = get(['Vendor Name','vendor_name','Vendor','vendor']);
+    document.getElementById('requested-by').value = get(['Requested By','requested_by','RequestedBy','Requested_By']);
+    document.getElementById('department').value   = get(['Department','department']);
+    document.getElementById('required-by').value  = get(['Required By','required_by','RequiredBy','Required_By']);
+    document.getElementById('notes').value        = get(['Notes','notes','Remarks','remarks']);
+    document.getElementById('po-badge-display').textContent = get(['PO Number','po_number']) || '—';
     document.getElementById('form-title').textContent = '✏️ Edit Purchase Order';
 
     // Clear items body and reset counter
