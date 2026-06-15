@@ -196,6 +196,10 @@
       <button class="btn-refresh" onclick="loadPOs()">↻ Refresh</button>
     </div>
 
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:0.75rem;color:var(--muted)" id="table-info">Showing latest 10 purchase orders</span>
+      <span style="font-size:0.75rem;color:var(--muted)">Use search/filter to find specific POs</span>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -536,14 +540,24 @@
     try {
       const res  = await fetch(WEBHOOKS.getAll);
       const data = await res.json();
-      allPOs = Array.isArray(data) ? data : (data.data || []);
-      generatePONumber();  // generate sequential PO number after allPOs loaded
+      const raw = Array.isArray(data) ? data : (data.data || []);
+
+      // Deduplicate: keep the LAST occurrence of each PO Number (most recent update)
+      const poMap = new Map();
+      raw.forEach(po => {
+        const key = po['PO Number'] || po['po_number'] || Math.random();
+        poMap.set(key, po);
+      });
+      allPOs = Array.from(poMap.values()).reverse(); // newest first
+
+      generatePONumber();
+      updateStats(allPOs);
+
       if (!allPOs.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="empty-table">No POs found. Create your first one below!</td></tr>`;
       } else {
-        renderTable(allPOs);
+        renderTable(allPOs.slice(0, 10)); // show only latest 10
       }
-      updateStats(allPOs);
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="8" class="empty-table">⚠️ Could not load POs — make sure PO-Get All workflow is Active in n8n.</td></tr>`;
     }
@@ -551,10 +565,15 @@
 
   function renderTable(pos) {
     const tbody = document.getElementById('po-table-body');
+    const info  = document.getElementById('table-info');
     if (!pos.length) {
       tbody.innerHTML = `<tr><td colspan="8" class="empty-table">No results found.</td></tr>`;
+      if (info) info.textContent = 'No purchase orders found';
       return;
     }
+    if (info) info.textContent = pos.length < allPOs.length
+      ? `Showing ${pos.length} of ${allPOs.length} purchase orders`
+      : `Showing latest ${pos.length} purchase orders`;
     tbody.innerHTML = pos.map(po => {
       const status  = po['Status']       || po['status']       || 'Draft';
       const cls     = 'status-' + status.toLowerCase();
@@ -653,7 +672,9 @@
       return (!q || poNum.includes(q) || vendor.includes(q) || reqBy.includes(q)) &&
              (!status || st === status);
     });
-    renderTable(filtered);
+    // Show all results when searching/filtering, else limit to 10
+    const limit = (q || status) ? filtered.length : 10;
+    renderTable(filtered.slice(0, limit));
   }
 
   function filterByStatus(status) {
@@ -663,10 +684,14 @@
 
   function updateStats(pos) {
     const s = p => p['Status'] || p['status'] || '';
-    document.getElementById('stat-total').textContent     = pos.length;
-    document.getElementById('stat-draft').textContent     = pos.filter(p => s(p) === 'Draft').length;
-    document.getElementById('stat-submitted').textContent = pos.filter(p => s(p) === 'Submitted').length;
-    document.getElementById('stat-approved').textContent  = pos.filter(p => s(p) === 'Approved').length;
+    const total     = pos.length;
+    const drafts    = pos.filter(p => s(p) === 'Draft').length;
+    const submitted = pos.filter(p => s(p) === 'Submitted').length;
+    const approved  = pos.filter(p => s(p) === 'Approved').length;
+    document.getElementById('stat-total').textContent     = total;
+    document.getElementById('stat-draft').textContent     = drafts;
+    document.getElementById('stat-submitted').textContent = submitted;
+    document.getElementById('stat-approved').textContent  = approved;
   }
 
   function showToast(msg, color) {
